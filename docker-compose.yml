@@ -1,0 +1,11 @@
+version: '3'
+services:
+  telegram-bot:
+    build: ./app
+    container_name: contractor-bot
+    environment:
+      - PYTHONUNBUFFERED=True
+    restart: on-failure
+    volumes:
+      - ./app:/app
+    command: python bot_main.py
