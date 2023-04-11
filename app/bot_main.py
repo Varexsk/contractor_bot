@@ -68,6 +68,39 @@ async def process_start_command(message: types.Message, state: FSMContext):
     await contractor_start(message)
 
 
+@dp.message_handler(state='*', commands=['help'])
+async def process_start_command(message: types.Message, state: FSMContext):
+    await state.finish()
+    await help_info(message)
+
+
+async def help_info(message: types.Message):
+    await message.answer(text="""
+    <i>Для каждого зарегистрированного пользователя чат абсолютно приватный. Все заявки отображаются лично для Вас. 
+    Информация никому не распространяется.</i>
+    
+    Инструкция пользования:
+    1. Пройдите регистрацию.
+        1. 1. Введите ваш номер телефона для связи с вами в случае выигрыша тендора. Enter для следующего шага.
+            Телефон должен быть длинной в 11 цифр, включая "8" в начале номера телефона.
+        1. 2. Напишите название вашей организации. Enter для следующего шага.
+        1. 3. Выберите регион(ы), ваша организация в которой может выполнить условия по заявке.
+        1. 4. Выберите по какому типу работает ваша организация: АХО или реклама.
+    2. Нажмите на кнопку "Обновить заявки", чтобы увидеть актуальные и принять по ним участие.
+        Заявки будут отображаться по Вашим регионам и по Вашему типу.
+        В появившемся списке можно увидеть последнюю предложенную минимальную стоимость.
+    3. Для участия в ценовой гонке установите свою стоимость, нажав на кнопку "Предложить свою цену"
+        3. 1. Введите сумму. Enter для следующего шага.
+    Кнопка "Обновить" показывает последнюю минимальную стоимость и отображает информацию о Вашей цене.
+    Дополнительно отображается информация лидирует ли Ваша предложенная стоимость.
+    По кнопке "Задать вопрос" Вы переходите на анонимный приватный диалог.
+    Вы можете задать вопрос по заявке заказчику. Ответ по вопросу Вы получите также приватно в этом чате от лица бота.
+    
+    <i>Разработано командой ARP ООО "ВсеИнструменты.Ру"</i>
+    """,
+                         parse_mode=types.ParseMode.HTML)
+
+
 @dp.message_handler(state=AdminState.wait_admin_pass)
 async def set_admin(message: types.Message, state: FSMContext):
     if message.text != 'ViBi12002022':
@@ -104,7 +137,7 @@ async def call_set_region(call: types.CallbackQuery, state: FSMContext):
             regs = ", ".join([rg for rg in chosen_regs])
             msg = await bot.edit_message_text(chat_id=call.message.chat.id,
                                               message_id=msg_id,
-                                              text=f'Вы выбрали: <strong>{regs}</strong>',
+                                              text=f'Вы выбрали: <b>{regs}</b>',
                                               parse_mode=types.ParseMode.HTML,
                                               reply_markup=accept_btn)
             msg_id = msg.message_id
@@ -114,7 +147,7 @@ async def call_set_region(call: types.CallbackQuery, state: FSMContext):
             await call.answer()
     else:
         chosen_regs = {reg}
-        msg = await call.message.answer(f'Вы выбрали: <strong>{reg}</strong>',
+        msg = await call.message.answer(f'Вы выбрали: <b>{reg}</b>',
                                         parse_mode=types.ParseMode.HTML,
                                         reply_markup=accept_btn)
         msg_id = msg.message_id
@@ -179,7 +212,7 @@ async def request_list_admin(message: types.Message, state: FSMContext, archive=
             types.InlineKeyboardButton('Редактировать Техническое Задание',
                                        callback_data=f'edit_request_{request.id}')
         ])
-        await message.answer(f'Заявка с именем <strong>{request.title}</strong>',
+        await message.answer(f'Заявка с именем <b>{request.title}</b>',
                              reply_markup=admin_request_menu,
                              parse_mode=types.ParseMode.HTML)
 
@@ -211,23 +244,23 @@ async def get_contractor(call: types.CallbackQuery):
     if not min_price_data_list:
         await call.message.answer('По данному заказу цен нет ☹️')
         return
-    flag = True
+    flag = False
     for price_data in min_price_data_list:
         cont = await handlers.get_user_data(price_data.tg_id)
         if not cont:
-            flag = False
+            flag |= False
             continue
         admin_price_menu = types.InlineKeyboardMarkup()
         admin_price_menu.add(types.InlineKeyboardButton('Сделать победителем',
                                                         callback_data=f'winner_{cont.tg_id}_{request_id}'))
         await call.message.answer(f"Заявка №{price_data.request_id}\n"
-                                  f"Телефон: <strong>{cont.phone}</strong>\n"
-                                  f"Имя: <strong>{cont.fullname}</strong>\n"
-                                  f"Минимальная цена: <code>{price_data.price}</code> ₽\n"
-                                  f"Тип: <strong>{REQ_TYPE[cont.agent_type - 1]}</strong>",
+                                  f"Телефон: <b>{cont.phone}</b>\n"
+                                  f"Имя: <b>{cont.fullname}</b>\n"
+                                  f"Минимальная цена: <pre>{price_data.price}</pre> ₽\n"
+                                  f"Тип: <b>{REQ_TYPE[cont.agent_type - 1]}</b>",
                                   reply_markup=admin_price_menu,
                                   parse_mode=types.ParseMode.HTML)
-        flag = True
+        flag |= True
     if not flag:
         await error(call.message, 'no user data by PRICE.TG_ID')
 
@@ -255,7 +288,7 @@ async def contractor_start(message: types.Message):
         return
         # TODO: Сделать возможность перерегистрации
     await message.answer('Привет! Бот создан для проведения тендера компанией "ВсеИнструменты.ру"\n\n'
-                         'Для связи заказчика с Вами, напишите ваш <strong>телефон</strong>:',
+                         'Для связи заказчика с Вами, напишите ваш <b>телефон</b>:',
                          parse_mode=types.ParseMode.HTML)
     await ContractorState.wait_phone.set()
 
@@ -317,7 +350,7 @@ async def get_agent_type(call: types.CallbackQuery, state: FSMContext):
 
 async def contractor_login(message: types.Message):
     contractor_menu = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    contractor_menu.add(types.KeyboardButton('Обновить список заказов'))
+    contractor_menu.add(types.KeyboardButton('Обновить список заявок'))
     await message.answer(f'Вы успешно авторизованы',
                          reply_markup=contractor_menu)
 
@@ -448,7 +481,7 @@ async def send_message_to_contractor(message: types.Message, from_user, request_
         return
     if tg_id:
         await bot.send_message(tg_id,
-                               f'Вы выиграли тендер по заявке <strong>{request_data.title}</strong> \n\n'
+                               f'Вы выиграли тендер по заявке <b>{request_data.title}</b> \n\n'
                                f'Скоро с вами свяжется менеджер для уточнения деталей',
                                parse_mode=types.ParseMode.HTML)
         await message.edit_text('Информация отправлена пользователю')
@@ -462,16 +495,17 @@ async def send_message_to_contractor(message: types.Message, from_user, request_
     if not tg_id_list:
         await message.answer('Некому отправлять')
         return
-    flag = True
+    flag = False
     for tg_id in tg_id_list:
         contr_data = await handlers.get_user_data(tg_id)
         if contr_data.agent_type != request_data.type:
-            flag = False
+            flag |= False
             continue
         await req_send(tg_id, request_data)
-        flag = True
+        flag |= True
     if not flag:
         await message.answer('Некому отправлять')
+        return
     await message.answer('Заявка отправлена исполнителям')
 
 
@@ -526,7 +560,7 @@ async def message_get_info(message: types.Message, state: FSMContext):
     await message.answer('Вопрос отправлен. Ожидайте ответа')
     btn = types.InlineKeyboardButton(text='Ответить', callback_data=f'answer_req_{contractor_id}_{msg_ids[-1]}')
     await bot.send_message(author_id,
-                           text=f'Появился новый вопрос по заявке <strong>"{title}":</strong>\n{message.text}',
+                           text=f'Появился новый вопрос по заявке <b>"{title}"</b>:\n{message.text}',
                            parse_mode=types.ParseMode.HTML,
                            reply_markup=types.InlineKeyboardMarkup().add(btn))
 
@@ -580,14 +614,14 @@ async def reload_request_description(user_id, request_data):
     if min_price_data:
         price = min_price_data.price
         if min_price_data.tg_id == user_id:
-            price_desc = '\n<strong>Ваша стоимость лидирует 🔥</strong>'
+            price_desc = '\n<b>Ваша стоимость лидирует 🔥</b>'
         else:
             curr_price = await handlers.get_user_price_data(user_id)
             if curr_price and curr_price.request_id == request_data.id:
-                price_desc = f'\n<strong>Вы предложили:</strong> <code>{curr_price.price}</code> ₽'
-    msg_to_send = f'<strong>{request_data.title}</strong>\n\n' \
+                price_desc = f'\n<b>Вы предложили:</b> <pre>{curr_price.price}</pre> ₽'
+    msg_to_send = f'<b>{request_data.title}</b>\n\n' \
                   f'{request_data.description}\n\n' \
-                  f'Предложенная стоимость: <code>{price}</code> ₽' \
+                  f'Предложенная стоимость: <pre>{price}</pre> ₽' \
                   f'{price_desc}'
 
     return msg_to_send
@@ -610,7 +644,7 @@ REQ_TYPE = ['АХО', 'Реклама']
 
 
 # Обработка кнопки "Список заказов"
-@dp.message_handler(text='Обновить список заказов')
+@dp.message_handler(text='Обновить список заявок')
 async def request_list_contractor(message: types.Message):
     request_list = await handlers.get_all_requests(is_archived=0)
     list_msg = await handlers.get_msg_ids(message.from_user.id)
@@ -619,15 +653,15 @@ async def request_list_contractor(message: types.Message):
             await bot.delete_message(message.chat.id, msg)
         await database.delete_all_msg(message.from_user.id)
     if not request_list:
-        await message.answer('Список заказов пуст')
+        await message.answer('Список заявок пуст')
         return
     user_data = await handlers.get_user_data(message.from_user.id)
-    flag = True
+    flag = False
     for req_data in request_list:
         author_data = await handlers.get_user_data(req_data.tg_id)
         if not any([r in user_data.regions.split(', ') for r in author_data.regions.split(', ')]) \
                 or user_data.agent_type != req_data.type:
-            flag = False
+            flag |= False
             continue
 
         cnt_logger.debug(req_data)
@@ -635,7 +669,7 @@ async def request_list_contractor(message: types.Message):
         for msg in msg_media:
             await database.add_msg(message.from_user.id, msg.message_id)
         await database.add_msg(message.from_user.id, msg_text.message_id)
-        flag = True
+        flag |= True
     if not flag:
         await message.answer('Нет активных заявок')
 
