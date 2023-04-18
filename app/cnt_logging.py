@@ -119,7 +119,7 @@ sh.setFormatter(sf)
 # sh.addFilter(NoPingFilter())
 cnt_logger.addHandler(sh)
 
-fh = NewTimedRotatingFileHandler(filename=f'cnt_logs.log', when='S', interval=10, encoding='utf-8')
+fh = NewTimedRotatingFileHandler(filename=f'cnt_logs.log', when='midnight', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 ff = CustomFormatter(use_color=False)
 
