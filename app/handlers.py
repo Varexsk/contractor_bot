@@ -139,3 +139,10 @@ async def get_min_price_data_list(req_id):
     if not data or None in data:
         return []
     return [Prices(*d) for d in data]
+
+
+async def get_users_tg(regions, req_type):
+    data = await database.get_user_tg(regions, req_type)
+    if not data:
+        return []
+    return [d[0] for d in data]

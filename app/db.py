@@ -264,6 +264,14 @@ class Database:
                     """
         return self._execute_query(query, select=True, fetch_all=True)
 
+    async def get_user_tg(self, regions, req_type):
+        select_query = f"SELECT tg_id FROM users WHERE agent_type == {req_type} AND ("
+        for reg in regions.split(', '):
+            select_query += f'region LIKE("%{reg}%") or '
+        select_query = select_query[:-4] + ')'
+        record = self._execute_query(select_query, select=True, fetch_all=True)
+        return record
+
 
 def get_bot_root_path():
     path_list = [str(path.as_posix()) for path in Path(__file__).parents]

@@ -62,10 +62,10 @@ class NewTimedRotatingFileHandler(TimedRotatingFileHandler):
     def do_archive(self, current_file, new_file):
         print('<[::archiving log::]>')
         path_ = 'log_archive'
-        cf = os.path.split(current_file)[1]
-        nf = f'{path_}/{os.path.split(new_file)[1]}'
-        shutil.copy(cf, nf)
-        os.remove(cf)
+        nf = fr'{make_if_not_exists(path_)}\{os.path.split(new_file)[1]}'
+        print(current_file, nf)
+        shutil.copy(current_file, nf)
+        os.remove(current_file)
 
     def doRollover(self):
         if self.stream:
@@ -119,7 +119,7 @@ sh.setFormatter(sf)
 # sh.addFilter(NoPingFilter())
 cnt_logger.addHandler(sh)
 
-fh = NewTimedRotatingFileHandler(filename=f'../cnt_logs.log', when='midnight', encoding='utf-8')
+fh = NewTimedRotatingFileHandler(filename=f'cnt_logs.log', when='S', interval=10, encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 ff = CustomFormatter(use_color=False)
 
@@ -132,5 +132,11 @@ cnt_logger.setLevel(logging.DEBUG)
 def archive_logs():
     print('<[::archiving log::]>')
     path_ = 'log_archive'
-    new_log = f'{path_}/cnt_logs_STOPED_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
+    new_log = f'{make_if_not_exists(path_)}/cnt_logs_STOPED_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
     shutil.copy('../cnt_logs.log', new_log)
+
+
+def make_if_not_exists(folder_name):
+    if not os.path.exists(folder_name):
+        os.mkdir(folder_name)
+    return fr'{os.getcwd()}\{folder_name}'

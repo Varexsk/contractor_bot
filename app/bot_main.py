@@ -8,7 +8,8 @@ from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils import executor
-from aiogram.utils.exceptions import MessageNotModified
+from aiogram.utils.exceptions import MessageNotModified, MessageToDeleteNotFound
+from typing import Set
 
 import cnt_logging
 import handlers
@@ -389,7 +390,7 @@ async def get_name_request(message: types.Message, state: FSMContext):
     await RequestState.wait_image.set()
 
 
-photo_delivered: set[int] = set()
+photo_delivered: Set[int] = set()
 
 
 # todo: пофиксить прикрепление других картинок ТЗ из-за неправильного условия инкрементатора айди заявки
@@ -490,22 +491,12 @@ async def send_message_to_contractor(message: types.Message, from_user, request_
     if not author_data:
         await error(message, 'await handlers.get_user_data(message.from_user.id)')
         return
-    # todo: переписать код - надо получить список с юзердатой по регионам и его типам и уже проверять
-    tg_id_list = await handlers.get_contractors_tg(author_data.regions)
+    tg_id_list = await handlers.get_users_tg(author_data.regions, request_data.type)
     if not tg_id_list:
         await message.answer('Некому отправлять')
         return
-    flag = False
     for tg_id in tg_id_list:
-        contr_data = await handlers.get_user_data(tg_id)
-        if contr_data.agent_type != request_data.type:
-            flag |= False
-            continue
         await req_send(tg_id, request_data)
-        flag |= True
-    if not flag:
-        await message.answer('Некому отправлять')
-        return
     await message.answer('Заявка отправлена исполнителям')
 
 
@@ -612,16 +603,16 @@ async def reload_request_description(user_id, request_data):
     price = "цена не установлена"
 
     if min_price_data:
-        price = min_price_data.price
+        price = f"<code>{min_price_data.price}</code> ₽"
         if min_price_data.tg_id == user_id:
             price_desc = '\n<b>Ваша стоимость лидирует 🔥</b>'
         else:
             curr_price = await handlers.get_user_price_data(user_id)
             if curr_price and curr_price.request_id == request_data.id:
-                price_desc = f'\n<b>Вы предложили:</b> <pre>{curr_price.price}</pre> ₽'
+                price_desc = f'\n<b>Вы предложили:</b> <code>{curr_price.price}</code> ₽'
     msg_to_send = f'<b>{request_data.title}</b>\n\n' \
                   f'{request_data.description}\n\n' \
-                  f'Предложенная стоимость: <pre>{price}</pre> ₽' \
+                  f'Предложенная стоимость: {price}' \
                   f'{price_desc}'
 
     return msg_to_send
@@ -650,8 +641,11 @@ async def request_list_contractor(message: types.Message):
     list_msg = await handlers.get_msg_ids(message.from_user.id)
     if list_msg:
         for msg in list_msg:
-            await bot.delete_message(message.chat.id, msg)
-        await database.delete_all_msg(message.from_user.id)
+            try:
+                await bot.delete_message(message.chat.id, msg)
+                await database.delete_all_msg(message.from_user.id)
+            except MessageToDeleteNotFound as e:
+                cnt_logger.error(f"Error to delete message: {e}")
     if not request_list:
         await message.answer('Список заявок пуст')
         return
