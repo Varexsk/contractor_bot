@@ -11,15 +11,15 @@ from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils import executor
 from aiogram.utils.exceptions import MessageNotModified, MessageToDeleteNotFound
 from typing import Set
-
 import cnt_logging
 import handlers
 from cnt_logging import cnt_logger
 from db import database
+from envparse import env
 
-# api_token = '5263646133:AAGc8B-LJShL_PjmMiRN5hI_pPm_wYhjoPE'
-api_token = '5278381984:AAFRjCY3JLxegDUaq36zVuGsZzLpj7e_AZI'
-bot = Bot(token=api_token)
+if os.path.isfile('.env'):
+    env.read_envfile()
+bot = Bot(token=env('API_TOKEN_TEST'))
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 REGION_NAMES = ["СПБ", "МСКиМО", "СЗФО", "ЦФО", "ПФО", "УФО", "СФО", "ЮФО"]
