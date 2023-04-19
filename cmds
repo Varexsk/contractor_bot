@@ -1,0 +1,5 @@
+cd venv\Scripts\
+activate
+cd ../..
+- pip freeze > app/requriments.txt
+pip install -r app/requirements.txt
