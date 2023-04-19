@@ -1,6 +1,7 @@
 #
 # Основной код бота
 #
+import os.path
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -16,19 +17,18 @@ import handlers
 from cnt_logging import cnt_logger
 from db import database
 
-api_token = '5263646133:AAGc8B-LJShL_PjmMiRN5hI_pPm_wYhjoPE'
-# api_token = '5278381984:AAFRjCY3JLxegDUaq36zVuGsZzLpj7e_AZI'
+# api_token = '5263646133:AAGc8B-LJShL_PjmMiRN5hI_pPm_wYhjoPE'
+api_token = '5278381984:AAFRjCY3JLxegDUaq36zVuGsZzLpj7e_AZI'
 bot = Bot(token=api_token)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
-region_names = ["СПБ", "МСКиМО", "СЗФО", "ЦФО", "ПФО", "УФО", "СФО", "ЮФО"]
+REGION_NAMES = ["СПБ", "МСКиМО", "СЗФО", "ЦФО", "ПФО", "УФО", "СФО", "ЮФО"]
+REQ_TYPE = ['АХО', 'Реклама']
 
 
 class ContractorState(StatesGroup):
     wait_phone = State()
     wait_fullname = State()
-    wait_reg = State()
-    wait_agent_type = State()
 
 
 class RequestState(StatesGroup):
@@ -40,7 +40,6 @@ class RequestState(StatesGroup):
 
 class AdminState(StatesGroup):
     wait_admin_pass = State()
-    wait_reg = State()
 
 
 class PriceState(StatesGroup):
@@ -76,29 +75,17 @@ async def process_start_command(message: types.Message, state: FSMContext):
 
 
 async def help_info(message: types.Message):
-    await message.answer(text="""
-    <i>Для каждого зарегистрированного пользователя чат абсолютно приватный. Все заявки отображаются лично для Вас. 
-    Информация никому не распространяется.</i>
-    
-    Инструкция пользования:
-    1. Пройдите регистрацию.
-        1. 1. Введите ваш номер телефона для связи с вами в случае выигрыша тендора. Enter для следующего шага.
-            Телефон должен быть длинной в 11 цифр, включая "8" в начале номера телефона.
-        1. 2. Напишите название вашей организации. Enter для следующего шага.
-        1. 3. Выберите регион(ы), ваша организация в которой может выполнить условия по заявке.
-        1. 4. Выберите по какому типу работает ваша организация: АХО или реклама.
-    2. Нажмите на кнопку "Обновить заявки", чтобы увидеть актуальные и принять по ним участие.
-        Заявки будут отображаться по Вашим регионам и по Вашему типу.
-        В появившемся списке можно увидеть последнюю предложенную минимальную стоимость.
-    3. Для участия в ценовой гонке установите свою стоимость, нажав на кнопку "Предложить свою цену"
-        3. 1. Введите сумму. Enter для следующего шага.
-    Кнопка "Обновить" показывает последнюю минимальную стоимость и отображает информацию о Вашей цене.
-    Дополнительно отображается информация лидирует ли Ваша предложенная стоимость.
-    По кнопке "Задать вопрос" Вы переходите на анонимный приватный диалог.
-    Вы можете задать вопрос по заявке заказчику. Ответ по вопросу Вы получите также приватно в этом чате от лица бота.
-    
-    <i>Разработано командой ARP ООО "ВсеИнструменты.Ру"</i>
-    """,
+    if os.path.exists('help_cmd_info.txt'):
+        try:
+            with open(file='help_cmd_info.txt', mode='r', encoding='utf-8') as f:
+                s = f.read()
+        except FileNotFoundError as e:
+            cnt_logger.error(f'HOW THIS EVEN HAPPENS? {e}')
+    else:
+        s = 'Файл с инструкцией не найден. Сообщите об этом разработчикам @varex @lbdv_jcd'
+        cnt_logger.error('HELP INFO FILE NOT FOUND')
+
+    await message.answer(text=s,
                          parse_mode=types.ParseMode.HTML)
 
 
@@ -109,7 +96,7 @@ async def set_admin(message: types.Message, state: FSMContext):
         return
     await state.finish()
     rg = types.InlineKeyboardMarkup(row_width=4).add(
-        *[types.InlineKeyboardButton(text=x, callback_data=f'chooseReg_admin_{x}') for x in region_names]
+        *[types.InlineKeyboardButton(text=x, callback_data=f'chooseReg_admin_{x}') for x in REGION_NAMES]
     )
     await message.answer("Выберите регион(ы)", reply_markup=rg)
     await AdminState.next()
@@ -313,7 +300,7 @@ async def get_fullname(message: types.Message, state: FSMContext):
         message.text = message.text.replace('"', "'")
     await state.update_data(org_name=message.text)
     rg = types.InlineKeyboardMarkup(row_width=4).add(
-        *[types.InlineKeyboardButton(text=x, callback_data=f'chooseReg_contr_{x}') for x in region_names]
+        *[types.InlineKeyboardButton(text=x, callback_data=f'chooseReg_contr_{x}') for x in REGION_NAMES]
     )
     await message.answer("Выберите регион(ы): ", reply_markup=rg)
     await ContractorState.next()
@@ -626,12 +613,12 @@ async def price_changer(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         await message.answer('Некорректный формат. Введите заново:')
         return
-    await database.add_price(request_id, message.from_user.id, message.text)
+    if await database.get_price(request_id):
+        await database.update_price(request_id=request_id, tg_id=message.from_user.id, price=message.text)
+    else:
+        await database.add_price(request_id=request_id, tg_id=message.from_user.id, price=message.text)
     await message.answer('Цена отправлена')
     await state.finish()
-
-
-REQ_TYPE = ['АХО', 'Реклама']
 
 
 # Обработка кнопки "Список заказов"

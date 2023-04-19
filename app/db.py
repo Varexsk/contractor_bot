@@ -226,6 +226,10 @@ class Database:
                         """
         self._execute_query(insert_query)
 
+    async def update_price(self, request_id, tg_id, price):
+        querry = f'UPDATE prices SET price = "{price}" WHERE request_id = {request_id} AND tg_id = {tg_id}'
+        self._execute_query(querry)
+
     # to handler
     async def get_price(self, request_id):
         select_query = f"""
